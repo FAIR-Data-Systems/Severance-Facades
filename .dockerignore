@@ -1,0 +1,6 @@
+.git
+.env
+.bundle/
+vendor/bundle/
+spec/
+*.gemspec

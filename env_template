@@ -1,0 +1,29 @@
+# All BEACON_-prefixed to avoid colliding with unrelated env vars on a host
+# that also runs Severance (or anything else) alongside this facade.
+BEACON_PORT=4567
+BEACON_BIND=0.0.0.0
+
+# Severance External endpoint this facade submits queries to
+BEACON_SEVERANCE_URL=http://localhost:3000
+BEACON_SEVERANCE_AUTH_TOKEN=YesItsMe
+
+# Blocking poll loop against Severance External while waiting for Internal
+# to pick up and answer the job. Severance Internal's own POLL_INTERVAL
+# (default 10s in its env_template) determines how fast a submitted job can
+# possibly be answered -- tune BEACON_POLL_CEILING here accordingly.
+BEACON_POLL_INTERVAL=1
+BEACON_POLL_CEILING=20
+
+BEACON_ENVIRONMENT=test
+
+# Pre-shared key ERDERA will configure when registering this facade as a
+# Beacon resource in the VP; sent back as the `auth-key` header on every
+# call. This is NOT a hard access gate -- see ../VP-AUTH-EXPLAINED.md --
+# it only elevates a caller from boolean to count granularity. Leave unset
+# for local testing (every caller is then treated as trusted).
+BEACON_FACADE_AUTH_KEY=
+
+# Optional contact info surfaced in response.resultSets[].info
+BEACON_CONTACT_POINT=
+BEACON_CONTACT_EMAIL=
+BEACON_CONTACT_URL=
