@@ -7,14 +7,13 @@ Both facades only ever talk to Severance External's own public API (`available_q
 Severance repo itself.
 
 - **[`shallot-facade`](shallot-facade/)** -- domain-agnostic. Makes Severance look like a
-  [Shallot](https://github.com/wilkinsonlab/shallot)/GRLC-shaped service: one `GET /<query_id>` route
+  [Shallot](https://github.com/markwilkinson/Shallot)/GRLC-shaped service: one `GET /<query_id>` route
   per query, built dynamically from whatever queries Severance Internal has installed. Works for any
-  data model, unmodified.
+  data model, unmodified.  NOTE:  This does NOT use any Shallot or GRLC code, because those codebases are not as secure as Severance!  We only mimik them in this facade.
 - **[`beacon-facade`](beacon-facade/)** -- domain-specific to CARE-SM-2. Makes Severance look like a
   GA4GH Beacon v2 API for CARE-SM-2 patient data (e.g. for ERDERA's Virtual Platform). Hardcoded query
-  IDs, a CARE-SM-2 ontology filter-mapper; see its own `handoff-beacon-caresm.md` and
-  `severance-queries/README.md` for the design rationale and query binding contract.
-
+  IDs, a CARE-SM-2 ontology filter-mapper.
+  
 See each facade's own `README.md` for setup, endpoints, and deployment detail.
 
 ## Security pipeline
@@ -91,6 +90,8 @@ your-facade/
 
 ### Wiring into the security pipeline
 
+Note that you cannot come into this project without going through a security scan!  To add a new facade, read/follow the instructions below, and do a pull-request, or just contact the repo owner for guidance (e.g. submit an Issue).
+
 `Security/security-patch.sh` won't pick up a new facade automatically. Add:
 
 1. A `patch_image <name> ../your-facade ../your-facade/VERSION <YOUR_PREFIX>_VERSION [test_cmd]` call
@@ -107,6 +108,4 @@ See `Security/VULNERABILITY_TRIAGE.md` for the full triage process once findings
 Both facades moved here from other repos on 2026-09-22 -- `shallot-facade` from
 [`Severance`](https://github.com/FAIR-Data-Systems/Severance) (`facades/shallot-facade/`), `beacon-facade`
 from [`CARE-Semantic-Model-Version-2`](https://github.com/wilkinsonlab/CARE-Semantic-Model-Version-2)
-(`implementation/Beacon2/facade/`, plus its `severance-queries/` and `handoff-beacon-caresm.md`). Full
-pre-move commit history for both is preserved in this repo's own git log (`git log -- shallot-facade/`
-/ `git log -- beacon-facade/`). See `CHANGELOG.md` for why.
+(`implementation/Beacon2/facade/`, plus its `severance-queries/`.
