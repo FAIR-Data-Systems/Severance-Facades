@@ -2,8 +2,8 @@
 
 Facade services that expose [Severance](https://github.com/FAIR-Data-Systems/Severance)-backed query
 results in the API shape a particular caller expects, so that caller needs no code change of its own.
-Both facades only ever talk to Severance External's own public API (`available_queries`, `queries`,
-`jobs/:uuid`) -- neither reads a `.rq` file directly, and neither has any other dependency on the
+Facades  in this repository only ever talk to Severance External's own public API (`available_queries`, `queries`,
+`jobs/:uuid`) -- none of them read a `.rq` file directly, and none have any other dependency on the
 Severance repo itself.
 
 - **[`shallot-facade`](shallot-facade/)** -- domain-agnostic. Makes Severance look like a
