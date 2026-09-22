@@ -75,6 +75,23 @@ conflict. Concretely:
 4. `bundle exec rackup` (reads `BEACON_PORT`/`BEACON_BIND` from the
    environment, defaulting to `4567`/`0.0.0.0`)
 
+## Docker
+
+`docker compose up` (after step 2 above -- `docker-compose.yml` reads `.env`, and `BEACON_PORT` if you
+changed it from the default). Hardened the same way as Severance's own `external/`/`internal/` compose
+files, and its sibling `Severance/facades/shallot-facade/docker-compose.yml`: `restart: always`,
+`security_opt: no-new-privileges`, `cap_drop: [ALL]` (no `cap_add` needed -- this Dockerfile never runs
+as root at all, no volumes to chown), `mem_limit`/`cpus` ceilings.
+
+**Covered by Severance's `Security/security-patch.sh`**, even though this facade's source lives in this
+(different) repo -- it clones this repo fresh (from `origin/main`, so a fix only pushes here first
+before it can be picked up there), builds+OS-patches (`apk`)+pushes+Trivy-scans
+`fairdatasystems/beaconfacade:<date>`, and prints the new tag. It does **not** write that tag back into
+this repo's `docker-compose.yml` automatically (nothing in Severance consumes a beacon-facade tag the
+way `care2`/`fdpserv2` feed Sextans' own compose templates) -- update the `image:` line here by hand
+after a patch run. Until then, `docker-compose.yml` here still points at a `:local` tag built with
+`build: .` -- run `docker build -t fairdatasystems/beaconfacade:local .` yourself in the meantime.
+
 ## Endpoints
 
 - `GET /info` -- minimal Beacon Framework metadata stub. Unauthenticated.
@@ -163,7 +180,13 @@ conflict. Concretely:
   triplestore yet -- only smoke-tested against a stub. See
   `../severance-queries/README.md` for the specific modeling assumptions
   that still need validating.
-- The Docker image build itself is unverified in this environment (its
-  package-manager network access was blocked by a sandbox policy, not a
-  problem with the image) -- worth a real `docker build` before relying on
-  it.
+- **The Docker image build is now verified** (2026-09-22): `docker build` succeeds and the container
+  runs correctly as its non-root `beacon` user, `GET /info` and `POST /individuals` (against an
+  unreachable Severance -- a clean `502 severance_unreachable`, not a leaked trace) both confirmed live.
+  Fixed a missing `Gemfile`/`Gemfile.lock` copy in the runtime stage that made every container exit
+  immediately with "Could not locate Gemfile" -- found while verifying this facade's sibling,
+  `Severance/facades/shallot-facade`, which had copied the identical bug from this Dockerfile. Also
+  added a generic `error StandardError` handler to `app.rb` as defense in depth against the same class
+  of stack-trace leak that hit the sibling facade's `GET /` (not currently reachable here, since
+  `/individuals` already rescues everything `SeveranceClient#query` can raise, but the same
+  `show_exceptions :after_handler` setting means any future route without its own rescue would hit it).

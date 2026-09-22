@@ -112,3 +112,20 @@ error JSON::ParserError do
   status 400
   { error: 'invalid_json' }.to_json
 end
+
+# Defense in depth: `show_exceptions, :after_handler` above means Sinatra otherwise renders its
+# detailed exception page (full backtrace, file paths, gem versions) for ANY uncaught exception, in
+# every environment -- there is no environment-based fallback once this setting is anything but false.
+# /individuals already rescues everything SeveranceClient#query can raise explicitly, so this isn't
+# currently reachable here -- but its sibling facade, Severance/facades/shallot-facade, hit exactly
+# this class of bug live (a route calling SeveranceClient#available_queries with no rescue around a
+# connection-level failure leaked a stack trace to the caller) before its own client wrapped that
+# failure and this same handler was added there. Kept here too as the safety net for the same mistake
+# in any future route.
+error StandardError do
+  e = env['sinatra.error']
+  warn "beacon-facade: unhandled #{e.class} in #{request.request_method} #{request.path_info}: #{e.message}"
+  status 500
+  content_type :json
+  { error: 'internal_error' }.to_json
+end
