@@ -44,6 +44,8 @@ COPY --chown=beacon:beacon lib/ ./lib/
 # all. Same fix as Severance's external/internal/shallot-facade Dockerfiles; must run before USER
 # drops root below, since removing a system gem needs write access to /usr/local/lib/ruby/gems.
 RUN gem uninstall -i /usr/local/lib/ruby/gems/3.2.0 net-imap --all --force || true
+RUN gem uninstall -i /usr/local/lib/ruby/gems/3.2.0 erb --all --force || true
+RUN gem uninstall -i /usr/local/lib/ruby/gems/3.2.0 resolv --all --force || true
 
 # Not just documentation -- GET /info reads this same file at runtime
 # (see app.rb) so the running version is queryable, not just labeled.

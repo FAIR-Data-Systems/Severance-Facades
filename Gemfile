@@ -8,6 +8,8 @@ gem 'json'
 # see the Dockerfile comment for why the base image's own stale default-gem copy still needs
 # removing separately. Same pin as Severance's external/internal/shallot-facade Gemfiles.
 gem 'net-imap', '~> 0.5'
+gem 'erb', '6.0.7'
+gem 'resolv', '0.8.0'
 
 group :test do
   gem 'rspec'

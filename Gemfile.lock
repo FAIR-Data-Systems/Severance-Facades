@@ -4,6 +4,7 @@ GEM
     base64 (0.3.0)
     date (3.5.1)
     diff-lcs (1.6.2)
+    erb (6.0.7)
     json (2.21.2)
     logger (1.7.0)
     mustermann (3.1.1)
@@ -27,6 +28,7 @@ GEM
       rack (>= 1.3)
     rackup (2.3.1)
       rack (>= 3)
+    resolv (0.8.0)
     rspec (3.13.2)
       rspec-core (~> 3.13.0)
       rspec-expectations (~> 3.13.0)
@@ -55,11 +57,13 @@ PLATFORMS
   x86_64-linux
 
 DEPENDENCIES
+  erb (= 6.0.7)
   json
   net-imap (~> 0.5)
   puma (~> 6.0)
   rack-test
   rackup
+  resolv (= 0.8.0)
   rspec
   sinatra (~> 4.0)
 
@@ -67,6 +71,7 @@ CHECKSUMS
   base64 (0.3.0) sha256=27337aeabad6ffae05c265c450490628ef3ebd4b67be58257393227588f5a97b
   date (3.5.1) sha256=750d06384d7b9c15d562c76291407d89e368dda4d4fff957eb94962d325a0dc0
   diff-lcs (1.6.2) sha256=9ae0d2cba7d4df3075fe8cd8602a8604993efc0dfa934cff568969efb1909962
+  erb (6.0.7) sha256=c5ca6dc25b0ef974a44dc8f59fe847577122483b1968a38dec305c60bf91ee92
   json (2.21.2) sha256=1f1d3b7cf2b3ba1a69beca0bb6db13d5438b80bff3cd54cdaaa620b9b07c1c6a
   logger (1.7.0) sha256=196edec7cc44b66cfb40f9755ce11b392f21f7967696af15d274dde7edff0203
   mustermann (3.1.1) sha256=4c6170c7234d5499c345562ba7c7dfe73e1754286dcc1abb053064d66a127198
@@ -79,6 +84,7 @@ CHECKSUMS
   rack-session (2.1.2) sha256=595434f8c0c3473ae7d7ac56ecda6cc6dfd9d37c0b2b5255330aa1576967ffe8
   rack-test (2.2.0) sha256=005a36692c306ac0b4a9350355ee080fd09ddef1148a5f8b2ac636c720f5c463
   rackup (2.3.1) sha256=6c79c26753778e90983761d677a48937ee3192b3ffef6bc963c0950f94688868
+  resolv (0.8.0) sha256=733a3483c1510942dae9c60c873fa7153b63d5830eba230827775a50703d90d0
   rspec (3.13.2) sha256=206284a08ad798e61f86d7ca3e376718d52c0bc944626b2349266f239f820587
   rspec-core (3.13.6) sha256=a8823c6411667b60a8bca135364351dda34cd55e44ff94c4be4633b37d828b2d
   rspec-expectations (3.13.5) sha256=33a4d3a1d95060aea4c94e9f237030a8f9eae5615e9bd85718fe3a09e4b58836
