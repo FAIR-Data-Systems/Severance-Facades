@@ -19,89 +19,87 @@ binding contract. Moved here from
 details; full pre-move commit history is preserved in this repo's own git
 log.
 
-Scope: query path only. No `/catalog`.
+**Scope: query path only. There is no `/catalog`.**
 
-**Built primarily for ERDERA's actual client, not the GA4GH spec.**
-Reading ERDERA's `RDVP-Portal-backend` / `RDVP-Portal-frontend` source
-(the only real caller this facade will ever have) showed its Beacon
-requests and expected responses deviate from the GA4GH Beacon v2 spec in
-several ways. This facade is built to answer that real client correctly
-first; spec compliance is a secondary, best-effort goal where it doesn't
-conflict. Concretely:
+**Running this facade does NOT give you access to any data on its own.** It can only answer for the two
+named queries (`individuals_exists`, `individuals_count`) that the data provider has installed on
+Severance Internal — see step 3 below. If those queries aren't installed, this facade has nothing to
+answer with.
 
-- No `requestedGranularity` is ever sent by ERDERA's client — it always
-  reads both `responseSummary.exists` and `responseSummary.numTotalResults`
-  and expects both populated. This facade doesn't gate granularity on a
-  request field at all; instead it gates on trust (see the `auth-key`
-  point below) — a real Beacon-spec client asking for boolean explicitly
-  isn't supported any differently than an untrusted caller getting one by
-  default.
-- The response also needs a `response.resultSets[]` array (not just
-  `responseSummary`), and an `info.warnings.unsupportedFilters` list when
-  applicable — see `IndividualsResponseBody.java` /
+**Built for ERDERA's real client, not a literal reading of the GA4GH spec.** Reading ERDERA's
+`RDVP-Portal-backend`/`RDVP-Portal-frontend` source (the only real caller this facade will ever have)
+showed its Beacon requests and expected responses deviate from the GA4GH Beacon v2 spec in several
+ways. This facade answers that real client correctly first; spec compliance is a secondary, best-effort
+goal where it doesn't conflict. **You need to know these deviations if you're maintaining or debugging
+this facade:**
+
+- **No `requestedGranularity` is ever sent by ERDERA's client.** It always reads both
+  `responseSummary.exists` and `responseSummary.numTotalResults` and expects both populated. This
+  facade does NOT gate granularity on a request field at all — it gates on trust (see the `auth-key`
+  point below). A real Beacon-spec client explicitly asking for a boolean-only answer gets no different
+  treatment than any other untrusted caller.
+- The response also needs a `response.resultSets[]` array (not just `responseSummary`), and an
+  `info.warnings.unsupportedFilters` list when applicable — see `IndividualsResponseBody.java` /
   `BeaconResponseBodyResponseSection.java` in RDVP-Portal-backend.
-- Auth is a per-resource pre-shared `auth-key` header, configured on
-  ERDERA's side when they register this facade as a resource — not a
-  bearer token or standard Beacon security scheme. Deliberately **not** a
-  hard access gate: a Beacon is meant to be publicly queryable, so anyone
-  can call `/individuals` and get a boolean `exists`-only answer; only a
-  caller presenting the correct `auth-key` gets the fuller count response
-  the VP needs. See `../VP-AUTH-EXPLAINED.md` for the full picture,
-  including why neither this key nor the VP's own forwarded end-user
-  token amounts to real authorization of *who* gets a count.
-- `sex` and `disease` filters can arrive with **multiple** values (OR
-  semantics). Severance's binding substitution is scalar, so only the
-  first value is honored; the rest are reported back in
-  `info.warnings.unsupportedFilters`. See
-  `../severance-queries/README.md` for why this is a Severance-level
-  constraint, not something fixable in this facade alone.
-- Age-like filters (`ageThisYear`, `symptomOnset`, `ageAtDiagnosis`)
-  always arrive as a `>=`/`<=` range, not an exact value. `ageThisYear` in
-  particular is tagged with Birthyear's own NCIT code
-  (`obo:NCIT_C83164`) but its value is an actual age — `FilterMapper`
-  inverts it into a birth-year range.
-- Only 5 of the 7 CARE-SM-2 filters (`disease`, `sex`, birthyear via
-  ageThisYear, `age_symptom_onset`, `age_diagnosis`) are ever populated by
-  the VP today. `symptom` and `gene_variant` are supported for a future
-  spec-compliant caller but untested against a real request.
+- **Auth is a per-resource pre-shared `auth-key` header**, configured on ERDERA's side when they
+  register this facade as a resource — NOT a bearer token, and NOT a standard Beacon security scheme.
+  This is deliberate, not a gap: a Beacon is meant to be publicly queryable, so **anyone CAN call
+  `/individuals` and get a boolean `exists`-only answer** — only a caller presenting the correct
+  `auth-key` gets the fuller count response the VP needs. See `../VP-AUTH-EXPLAINED.md` for the full
+  picture, including why neither this key nor the VP's own forwarded end-user token amounts to real
+  authorization of *who* gets a count.
+- `sex` and `disease` filters CAN arrive with **multiple** values (OR semantics), but Severance's
+  binding substitution is scalar — **only the first value is honored**; the rest are reported back in
+  `info.warnings.unsupportedFilters`. See `../severance-queries/README.md` for why this is a
+  Severance-level limit, not something fixable in this facade alone.
+- Age-like filters (`ageThisYear`, `symptomOnset`, `ageAtDiagnosis`) always arrive as a `>=`/`<=` range,
+  never an exact value. `ageThisYear` in particular is tagged with Birthyear's own NCIT code
+  (`obo:NCIT_C83164`) but its value is an actual age — `FilterMapper` inverts it into a birth-year
+  range.
+- Only 5 of the 7 CARE-SM-2 filters (`disease`, `sex`, birthyear via ageThisYear, `age_symptom_onset`,
+  `age_diagnosis`) are ever populated by the VP today. `symptom` and `gene_variant` are supported for a
+  future spec-compliant caller but untested against a real request.
 
 ## Setup
 
+**Do these steps in order:**
+
 1. `bundle install`
-2. Copy `env_template` to `.env` and edit `BEACON_SEVERANCE_URL` /
-   `BEACON_SEVERANCE_AUTH_TOKEN` to match your Severance External
-   deployment, and set `BEACON_FACADE_AUTH_KEY` to whatever pre-shared key
-   ERDERA configures for this resource. All env vars are `BEACON_`-prefixed
-   on purpose, so they can't collide with unrelated ones on a host that
-   also runs Severance (or anything else) alongside this facade.
-3. Install `../severance-queries/individuals_exists.rq` and
-   `individuals_count.rq` into your Severance Internal's `./queries` folder
-   (see `../severance-queries/README.md`).
-4. `bundle exec rackup` (reads `BEACON_PORT`/`BEACON_BIND` from the
-   environment, defaulting to `4567`/`0.0.0.0`)
+2. **Copy `env_template` to `.env`.** Edit:
+   - `BEACON_SEVERANCE_URL` / `BEACON_SEVERANCE_AUTH_TOKEN` -- must match your Severance External
+     deployment exactly.
+   - `BEACON_FACADE_AUTH_KEY` -- set this to whatever pre-shared key ERDERA configures for this
+     resource. All env vars here are `BEACON_`-prefixed on purpose, so they can't collide with
+     unrelated ones on a host that also runs Severance (or anything else) alongside this facade.
+3. **Install `../severance-queries/individuals_exists.rq` and `individuals_count.rq` into your
+   Severance Internal's `./queries` folder** (see `../severance-queries/README.md`). **This facade
+   cannot answer anything until you do this.**
+4. `bundle exec rackup` (reads `BEACON_PORT`/`BEACON_BIND` from the environment, defaulting to
+   `4567`/`0.0.0.0`)
 
-## Docker
+## Running it with Docker
 
-`docker compose up` (after step 2 above -- `docker-compose.yml` reads `.env`, and `BEACON_PORT` if you
-changed it from the default). Hardened the same way as Severance's own `external/`/`internal/` compose
-files, and its sibling [`shallot-facade`](../shallot-facade)'s: `restart: always`,
-`security_opt: no-new-privileges`, `cap_drop: [ALL]` (no `cap_add` needed -- this Dockerfile never runs
-as root at all, no volumes to chown), `mem_limit`/`cpus` ceilings.
+    docker compose up
 
-**Covered by this repo's own `Security/security-patch.sh`** (see `../Security/`) -- builds+OS-patches
-(`apk`)+pushes+Trivy-scans `fairdatasystems/beaconfacade:<date>`, attempts an automated Ruby gem CVE
-patch, and writes the freshly-pushed tag straight into this file's `image:` line, committing and
-pushing that bump directly (no manual step, unlike when this facade lived in a separate repo from the
-pipeline that patches it).
+(after step 2 above -- `docker-compose.yml` reads `.env`, and `BEACON_PORT` if you changed it from the
+default).
+
+**DO NOT edit `image:` in `docker-compose.yml` by hand.** It's hardened the same way as Severance's own
+`external/`/`internal/` compose files and its sibling [`shallot-facade`](../shallot-facade)'s
+(`restart: always`, `security_opt: no-new-privileges`, `cap_drop: [ALL]`, `mem_limit`/`cpus`
+ceilings), and it's kept up to date automatically: **`Security/security-patch.sh`** (see
+`../Security/`) builds this image fresh from source, OS-patches it, pushes
+`fairdatasystems/beaconfacade:<date>`, Trivy-scans it, attempts an automated Ruby gem CVE patch, and
+writes the freshly-pushed tag straight into this file itself, committing and pushing that bump
+directly.
 
 ## Endpoints
 
-- `GET /info` -- minimal Beacon Framework metadata stub. Unauthenticated.
-  Includes `facadeVersion` (this codebase's own version) alongside
-  `apiVersion` (the Beacon API shape being emulated) -- see the Version
-  section above.
-- `POST /individuals` -- individuals query, publicly reachable by anyone.
-  Body, matching what ERDERA's VP actually sends (see
+- **`GET /info`** -- minimal Beacon Framework metadata stub. No authentication needed. Includes
+  `facadeVersion` (this codebase's own version) alongside `apiVersion` (the Beacon API shape being
+  emulated) -- see the Version section above.
+- **`POST /individuals`** -- the individuals query. **Publicly reachable by anyone** -- there is no
+  login required to call it. Body, matching what ERDERA's VP actually sends (see
   `BeaconIndividualsQueryHandler.java` in RDVP-Portal-backend):
 
   ```json
@@ -118,11 +116,10 @@ pipeline that patches it).
   }
   ```
 
-  The response's granularity depends on whether the caller presents a
-  valid `auth-key` header matching `BEACON_FACADE_AUTH_KEY` (unset = every
-  caller trusted, e.g. for local testing) -- see
-  `../VP-AUTH-EXPLAINED.md` for why this is deliberately not a hard
-  access gate. Anyone without it gets a boolean-only response:
+  **What you get back depends on whether the caller presents a valid `auth-key` header** matching
+  `BEACON_FACADE_AUTH_KEY` (if `BEACON_FACADE_AUTH_KEY` is left unset, every caller is trusted -- only
+  do this for local testing). See `../VP-AUTH-EXPLAINED.md` for why this is deliberately not a hard
+  access gate. **Without the correct `auth-key`, you get a boolean-only response:**
 
   ```json
   {
@@ -132,8 +129,8 @@ pipeline that patches it).
   }
   ```
 
-  A caller presenting the correct `auth-key` (the VP, today) gets the
-  fuller count response the VP client actually needs:
+  **With the correct `auth-key`** (the VP, today), you get the fuller count response the VP client
+  actually needs:
 
   ```json
   {
@@ -147,10 +144,10 @@ pipeline that patches it).
   }
   ```
 
-  An `info.warnings.unsupportedFilters` array is added only when a filter
-  couldn't be fully honored (e.g. a multi-valued sex/disease filter).
+  An `info.warnings.unsupportedFilters` array is added only when a filter couldn't be fully honored
+  (e.g. a multi-valued sex/disease filter).
 
-## Structure
+## Code structure (for developers maintaining this facade)
 
 - `app.rb` -- routes; checks `auth-key`, parses the request, calls
   Severance, shapes the response.
@@ -182,13 +179,3 @@ pipeline that patches it).
   triplestore yet -- only smoke-tested against a stub. See
   `../severance-queries/README.md` for the specific modeling assumptions
   that still need validating.
-- **The Docker image build is now verified** (2026-09-22): `docker build` succeeds and the container
-  runs correctly as its non-root `beacon` user, `GET /info` and `POST /individuals` (against an
-  unreachable Severance -- a clean `502 severance_unreachable`, not a leaked trace) both confirmed live.
-  Fixed a missing `Gemfile`/`Gemfile.lock` copy in the runtime stage that made every container exit
-  immediately with "Could not locate Gemfile" -- found while verifying this facade's sibling,
-  `Severance/facades/shallot-facade`, which had copied the identical bug from this Dockerfile. Also
-  added a generic `error StandardError` handler to `app.rb` as defense in depth against the same class
-  of stack-trace leak that hit the sibling facade's `GET /` (not currently reachable here, since
-  `/individuals` already rescues everything `SeveranceClient#query` can raise, but the same
-  `show_exceptions :after_handler` setting means any future route without its own rescue would hit it).

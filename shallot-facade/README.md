@@ -6,56 +6,66 @@ A Sinatra app that makes [Severance](https://github.com/FAIR-Data-Systems/Severa
 [Shallot](https://github.com/wilkinsonlab/shallot) service to any caller: one synchronous
 `GET /<query_id>?param=...` route per query Severance Internal has installed, plus a Swagger 2.0
 document describing them, built dynamically from Severance's own `GET /severance/available_queries`
-catalogue. (Shallot's own query-annotation format and variable-naming convention come from
-[GRLC](https://github.com/CLARIAH/grlc) -- referenced here only for that, not as this facade's own
-name or interface: GRLC's own server has a known, unpatched security history, which is exactly why
-FLAIR-GG runs the hardened Shallot fork instead, and why this facade is named and documented as a
-Shallot-shaped service throughout.) It exists so callers built against Shallot's interface -- like the
-FLAIR-GG Virtual Platform's data-service layer
-(`VP/vp-interface/lib/services.rb`) -- can call a Severance-backed query with **no code change of
-their own**: register it in the FAIR Data Point exactly like a Shallot query
-(`dcat:endpointURL` = `<this facade>/<query_id>`, `dcat:endpointDescription` =
-`<this facade>/openapi.json`, same `dcterms:type` as the equivalent Shallot query).
+catalogue.
+
+**This does NOT use any Shallot or GRLC code.** Shallot's own query-annotation format and
+variable-naming convention come from [GRLC](https://github.com/CLARIAH/grlc), referenced here only for
+that -- GRLC's own server has a known, unpatched security history, which is exactly why FLAIR-GG runs
+the hardened Shallot fork instead, and why this facade only mimics Shallot's interface, never its
+code. **You CAN point an existing Shallot-speaking caller at this facade with no code change of its
+own** -- register it in the FAIR Data Point exactly like a Shallot query (`dcat:endpointURL` =
+`<this facade>/<query_id>`, `dcat:endpointDescription` = `<this facade>/openapi.json`, same
+`dcterms:type` as the equivalent Shallot query).
 
 **Domain-agnostic on purpose.** Unlike its sibling [`beacon-facade`](../beacon-facade)
 (CARE-SM-2-specific: hardcoded query IDs, an ontology filter-mapper), this facade has zero knowledge
-of any particular data model. It works for FLAIR-GG's queries, CARE-SM-2's, or anyone else's,
-unmodified -- it only ever talks to Severance External's own public API (`available_queries`,
-`queries`, `jobs/:uuid`), never a `.rq` file directly: it's a reusable capability of Severance itself,
-not of any one project that happens to use Severance. (That distinction is why the two facades used to
-live in different repos -- see this repo's `CHANGELOG.md` for why they were consolidated here instead.)
+of any particular data model. **You CAN use it unmodified** for FLAIR-GG's queries, CARE-SM-2's, or
+anyone else's -- it only ever talks to Severance External's own public API (`available_queries`,
+`queries`, `jobs/:uuid`). **It CANNOT read a `.rq` file directly**, and it needs nothing else from you
+beyond a working Severance deployment.
+
+**Running this facade does NOT give you access to any data on its own.** It only exposes queries that
+the data provider has already approved and installed on Severance Internal. If the query you need
+isn't there yet, you must get it added before this facade can do anything with it.
 
 ## Setup
 
+**Do these steps in order:**
+
 1. `bundle install`
-2. Copy `env_template` to `.env` and edit `SHALLOT_FACADE_SEVERANCE_URL` /
-   `SHALLOT_FACADE_SEVERANCE_AUTH_TOKEN` to match your Severance External deployment, and
-   `SHALLOT_FACADE_BASE_URL` to this facade's own externally-reachable base URL (see below for why that
-   has to be right).
-3. Install your query `.rq` files into Severance Internal's `./queries` folder as usual -- nothing
-   about them needs to change for this facade; it only reads what Internal has already parsed and
-   pushed to External's `available_queries`.
-4. Requires the Severance `before`-filter fix (see the top-level `CHANGELOG.md`'s "Fixed" entry,
-   2026-09) -- without it, `GET /severance/jobs/:uuid` and `GET /severance/available_queries` are
-   unreachable for a Bearer-authenticated external caller like this facade.
-5. `bundle exec rackup` (reads `SHALLOT_FACADE_PORT`/`SHALLOT_FACADE_BIND` from the environment, defaulting
-   to `4567`/`0.0.0.0`)
+2. **Copy `env_template` to `.env`.** Edit:
+   - `SHALLOT_FACADE_SEVERANCE_URL` / `SHALLOT_FACADE_SEVERANCE_AUTH_TOKEN` -- must match your Severance
+     External deployment exactly.
+   - `SHALLOT_FACADE_BASE_URL` -- this facade's own externally-reachable base URL. **This has to be
+     exactly right** -- see `GET /openapi.json` below for why.
+3. **Install your query `.rq` files into Severance Internal's `./queries` folder, as usual.** Nothing
+   about them needs to change for this facade -- it only reads what Internal has already parsed and
+   already pushed to External's `available_queries`. You CANNOT make a query available through this
+   facade any other way.
+4. **Your Severance External must be running a version that includes the `before`-filter fix** (shipped
+   since 2026-09 -- see the top-level `CHANGELOG.md`'s "Fixed" entry in the Severance repo). If it's an
+   older, unpatched deployment, `GET /severance/jobs/:uuid` and `GET /severance/available_queries` will
+   be unreachable for this facade, and nothing will work.
+5. `bundle exec rackup` (reads `SHALLOT_FACADE_PORT`/`SHALLOT_FACADE_BIND` from the environment,
+   defaulting to `4567`/`0.0.0.0`)
 
-## Docker
+## Running it with Docker
 
-`docker compose up` (after step 2 above -- `docker-compose.yml` reads `.env`, and `SHALLOT_FACADE_PORT`
-if you changed it from the default). Hardened the same way as Severance's own `external/` and
-`internal/` compose files: `restart: always`, `security_opt: no-new-privileges`, `cap_drop: [ALL]`
-(no `cap_add` needed here -- this Dockerfile never runs as root at all, unlike `external/`'s
-chown-then-`gosu` step, since there are no volumes to chown), `mem_limit`/`cpus` ceilings.
+    docker compose up
 
-**Covered by this repo's own `Security/security-patch.sh`** (see `../Security/`), alongside its sibling
-[`beacon-facade`](../beacon-facade) -- it builds this image fresh from source, OS-patches it (`apk`),
-pushes `fairdatasystems/shallotfacade:<date>`, Trivy-scans it, attempts an automated Ruby gem CVE patch,
-and writes the newly patched tag straight into this file's `image:` line, committing and pushing that
-bump directly (from `Security/shallot-docker-compose-template-template.yml`). You can still
-`docker build -t fairdatasystems/shallotfacade:local .` yourself in
-the meantime, or run the pipeline.
+(after step 2 above -- `docker-compose.yml` reads `.env`, and `SHALLOT_FACADE_PORT` if you changed it
+from the default).
+
+**DO NOT edit `image:` in `docker-compose.yml` by hand.** It's hardened the same way as Severance's own
+`external/` and `internal/` compose files (`restart: always`, `security_opt: no-new-privileges`,
+`cap_drop: [ALL]`, `mem_limit`/`cpus` ceilings), and it's kept up to date automatically:
+**`Security/security-patch.sh`** (see `../Security/`) builds this image fresh from source, OS-patches
+it, pushes `fairdatasystems/shallotfacade:<date>`, Trivy-scans it, attempts an automated Ruby gem CVE
+patch, and writes the newly patched tag straight into this file itself, committing and pushing that
+bump directly.
+
+You CAN still build and run a local copy yourself while waiting on a patch run:
+`docker build -t fairdatasystems/shallotfacade:local .`
 
 ## Configuration reference
 
@@ -69,33 +79,26 @@ the meantime, or run the pipeline.
 
 ## Endpoints
 
-- `GET /` -- minimal banner (facade version, known query IDs). Unauthenticated.
-- `GET /openapi.json` -- a Swagger 2.0 document, one path per known query, built from Severance's
-  `available_queries` catalogue. This is what `dcat:endpointDescription` should point to. Modeled on
-  the shape Shallot itself serves (see
-  `FLAIR-GG/Data Service Configs/Shallot/shared-queries/current_yaml.json`), since that exact shape is
-  already proven to round-trip through the VP's swagger-converter -> Openapi3Parser pipeline. Its
+- **`GET /`** -- minimal banner (facade version, known query IDs). No authentication needed.
+- **`GET /openapi.json`** -- a Swagger 2.0 document, one path per known query, built from Severance's
+  `available_queries` catalogue. This is what `dcat:endpointDescription` should point to. Its
   `host`/`basePath`/`schemes` are derived from `SHALLOT_FACADE_BASE_URL` -- **this must match the
   scheme/host/path prefix a caller registers as `dcat:endpointURL`** for the corresponding query
-  (`<SHALLOT_FACADE_BASE_URL>/<query_id>`), since callers that fetch this doc (like the VP) compare the
-  two to find the operation's parameters.
-- `GET /<query_id>?param1=val1&param2=val2...` -- one route per catalogue entry, e.g. `GET
-  /IUCN_categories`, `GET /species_location?speciesname=Arabidopsis`. Query-string params map directly
-  to Severance `bindings` by name -- no translation, since Severance's binding names already are the
-  Shallot variable names. Internally: `POST /severance/queries`, poll `GET /severance/jobs/:uuid`
-  (blocking), then return the result synchronously with whatever `Content-Type` Severance itself sent
-  (CSV or `application/sparql-results+json`, per that deployment's `RESULT_FORMAT`).
-  - `404` if `query_id` doesn't match any known query (after one catalogue refresh, in case it was
-    just installed on Internal).
-  - `502` if Severance itself rejects the query or is unreachable; `504` if the poll ceiling
-    (`SHALLOT_FACADE_POLL_CEILING`) is reached first.
+  (`<SHALLOT_FACADE_BASE_URL>/<query_id>`), or a caller that fetches this doc (like the VP) won't be
+  able to find the operation's parameters.
+- **`GET /<query_id>?param1=val1&param2=val2...`** -- one route per catalogue entry, e.g. `GET
+  /IUCN_categories`, `GET /species_location?speciesname=Arabidopsis`. Query-string parameter names must
+  match Severance's own binding names exactly -- there is no translation step.
+  - **`404`** if `query_id` doesn't match any known query.
+  - **`502`** if Severance itself rejects the query or is unreachable.
+  - **`504`** if the poll ceiling (`SHALLOT_FACADE_POLL_CEILING`) is reached before an answer comes
+    back.
 
-No caller-facing auth on this facade's own routes, matching Shallot's current behavior (the VP sends
-none today -- see the commented-out `"auth-key"` in `VP/vp-interface/lib/services.rb`). This facade
-holds its own Severance `AUTH_TOKEN` internally (`SHALLOT_FACADE_SEVERANCE_AUTH_TOKEN`), never exposed to
+**This facade does not require any caller-facing authentication of its own** -- it holds its own
+Severance `AUTH_TOKEN` internally (`SHALLOT_FACADE_SEVERANCE_AUTH_TOKEN`) and never exposes it to
 callers.
 
-## Structure
+## Code structure (for developers maintaining this facade)
 
 - `app.rb` -- routes; boots a `SeveranceClient` and a `QueryCatalogue`, serves `/`, `/openapi.json`, and
   the dynamic `/:query_id` route.
@@ -109,20 +112,7 @@ callers.
 
 ## Known gaps
 
-- **Verified end to end** (2026-09-22) against a real Severance External + Internal + Virtuoso
-  instance, using FLAIR-GG's actual `IUCN_categories.rq` and `species_location.rq` unchanged: `GET
-  /IUCN_categories` and `GET /species_location?speciesname=...` both returned correct real data through
-  the full chain. That run also caught and fixed real bugs in Severance itself (see the top-level
-  `CHANGELOG.md`) and, separately, a stack-trace leak on `GET /`/`GET /openapi.json` when Severance was
-  unreachable -- `SeveranceClient#available_queries` now wraps connection-level failures, and a generic
-  `error StandardError` handler in `app.rb` is the backstop against the same class of mistake in any
-  future route (`show_exceptions :after_handler` otherwise renders a full backtrace for anything
-  uncaught, in every environment).
 - `QueryCatalogue`'s refresh-on-miss means a query *removed* from Internal stays visible here (and
   routable, until Severance itself rejects the `query_id`) until the process restarts or another
   lookup happens to trigger a refresh that drops it. Not a correctness problem (Severance is still the
   source of truth for whether a query actually runs), just a stale-listing edge case.
-- The Docker image build **is verified** -- `docker build` succeeds and the container runs correctly as
-  its non-root user (fixed a missing `Gemfile`/`Gemfile.lock` copy in the runtime stage that made every
-  container exit immediately with "Could not locate Gemfile", found by actually running it for the
-  first time).
