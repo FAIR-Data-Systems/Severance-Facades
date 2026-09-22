@@ -1,5 +1,5 @@
 # ── Build stage ───────────────────────────────────────────────────────────────
-FROM ruby:3.2-alpine AS builder
+FROM ruby:3.4-alpine AS builder
 
 WORKDIR /app
 
@@ -13,7 +13,7 @@ RUN bundle config set --local without 'test' && \
 
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
-FROM ruby:3.2-alpine
+FROM ruby:3.4-alpine
 
 RUN addgroup -S shallotfacade && \
     adduser -S -G shallotfacade -h /app -s /sbin/nologin shallotfacade
