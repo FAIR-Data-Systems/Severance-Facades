@@ -2,7 +2,7 @@
 # Alpine keeps this as thin as the public images get. build-base is only
 # needed here to compile the json gem's native extension; it never reaches
 # the runtime stage.
-FROM ruby:3.2-alpine AS builder
+FROM ruby:3.4-alpine AS builder
 
 WORKDIR /app
 
@@ -19,7 +19,7 @@ RUN bundle config set --local without 'test' && \
 # No build tools, no volume to chown at startup (unlike Severance's own
 # containers) -- so no privileged setup step, no entrypoint script, and the
 # app can run as the non-root user from the very first line.
-FROM ruby:3.2-alpine
+FROM ruby:3.4-alpine
 
 RUN addgroup -S beacon && \
     adduser -S -G beacon -h /app -s /sbin/nologin beacon
