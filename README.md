@@ -4,12 +4,12 @@ Facade services that expose [Severance](https://github.com/FAIR-Data-Systems/Sev
 results in the API shape a particular caller expects, so that caller needs no code change of its own.
 Facades  in this repository only ever talk to Severance External's own public API (`available_queries`, `queries`,
 `jobs/:uuid`) -- none of them read a `.rq` file directly, and none have any other dependency on the
-Severance repo itself.
+Severance repo itself.  Note that, in all cases, you will need to negotiate with the data provider to include your .rq named template in their repository of acceptable queries! Creating a Facade does not give you access to data!  It only provides the interface into a query that has already been approved and registered by the data provider (i.e. queries that exist in Severance Internal)
 
 - **[`shallot-facade`](shallot-facade/)** -- domain-agnostic. Makes Severance look like a
   [Shallot](https://github.com/markwilkinson/Shallot)/GRLC-shaped service: one `GET /<query_id>` route
   per query, built dynamically from whatever queries Severance Internal has installed. Works for any
-  data model, unmodified.  NOTE:  This does NOT use any Shallot or GRLC code, because those codebases are not as secure as Severance!  We only mimik them in this facade.
+  data model, unmodified.  NOTE:  This does NOT use any Shallot or GRLC code, because those codebases are not as secure as Severance!  We only mimik the GRLC and Shallot interface calls in this facade.  However, if your query exists in the Internal component, your normal calls to GRLC or Shallot will be successful.
 - **[`beacon-facade`](beacon-facade/)** -- domain-specific to CARE-SM-2. Makes Severance look like a
   GA4GH Beacon v2 API for CARE-SM-2 patient data (e.g. for ERDERA's Virtual Platform). Hardcoded query
   IDs, a CARE-SM-2 ontology filter-mapper.
