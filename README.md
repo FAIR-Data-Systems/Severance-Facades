@@ -2,6 +2,9 @@
 
 Facade services that expose [Severance](https://github.com/FAIR-Data-Systems/Severance)-backed query
 results in the API shape a particular caller expects, so that caller needs no code change of its own.
+
+FACADES ARE NOT AUTOMATICALLY INSTALLED by Severance!  If you want a facade to be exposed, you must request this from a repository custodian.
+
 Facades  in this repository only ever talk to Severance External's own public API (`available_queries`, `queries`,
 `jobs/:uuid`) -- none of them read a `.rq` file directly, and none have any other dependency on the
 Severance repo itself.  Note that, in all cases, you will need to negotiate with the data provider to include your .rq named template in their repository of acceptable queries! Creating a Facade does not give you access to data!  It only provides the interface into a query that has already been approved and registered by the data provider (i.e. queries that exist in Severance Internal)
