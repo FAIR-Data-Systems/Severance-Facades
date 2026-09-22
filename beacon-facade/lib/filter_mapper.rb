@@ -3,7 +3,7 @@
 require 'time'
 
 # Maps a Beacon-shaped `query.filters` array onto the CARE-SM-2 / Severance
-# binding contract (see ../../severance-queries/README.md).
+# binding contract (see ../severance-queries/README.md).
 #
 # Built primarily against ERDERA's actual RDVP-Portal-backend client (see
 # BeaconFilterType.java / BeaconFilterHandler.java in that repo), which is
@@ -25,7 +25,7 @@ module FilterMapper
   # Ids BeaconFilterType.java defines but the VP frontend/backend never
   # actually populates today (no `symptoms` / `geneVariant` field exists on
   # SearchRequest.java). Supported here anyway for a future spec-compliant
-  # caller -- see ../../severance-queries/README.md.
+  # caller -- see ../severance-queries/README.md.
   SYMPTOM_FILTER_ID = 'sio:SIO_010056'
   GENE_VARIANT_FILTER_ID = 'edam:data_2295'
 
@@ -101,7 +101,7 @@ module FilterMapper
   # The VP's "ageThisYear" filter is tagged with Birthyear's NCIT code
   # (obo:NCIT_C83164) but its value is an actual age in years (their own
   # default query uses a 0-100 range, which would be nonsensical as birth
-  # years) -- see severance-queries/README.md. Convert the age range into
+  # years) -- see ../severance-queries/README.md. Convert the age range into
   # the equivalent birth-year range: an age minimum corresponds to the
   # LATEST birth year that satisfies it, and vice versa.
   def self.apply_range(bindings, family, operator, value, reference_year)

@@ -8,7 +8,7 @@ require 'uri'
 # Owns the submit -> poll -> fetch cycle against Severance External for a
 # single incoming Beacon request. Blocking by design: the facade holds the
 # HTTP connection to the Beacon caller open for the whole cycle so ERDERA
-# never sees Severance's async job mechanics (see handoff-beacon-caresm.md).
+# never sees Severance's async job mechanics (see ../handoff-beacon-caresm.md).
 class SeveranceClient
   class PollTimeout < StandardError; end
   class QueryFailed < StandardError; end

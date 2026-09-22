@@ -1,7 +1,6 @@
 services:
   beacon-facade:
-    image: fairdatasystems/beaconfacade:local
-    build: .
+    image: {BFAC}
     restart: always
     security_opt:
       - "no-new-privileges:true"

@@ -36,7 +36,7 @@ module OpenapiBuilder
       'schemes' => [uri.scheme],
       'info' => {
         'title' => 'Severance data services (via shallot-facade)',
-        'description' => 'Shallot-shaped facade in front of Severance -- see facades/shallot-facade/README.md',
+        'description' => 'Shallot-shaped facade in front of Severance -- see https://github.com/FAIR-Data-Systems/Severance-Facades/blob/main/shallot-facade/README.md',
         'version' => 'local'
       },
       'paths' => paths_for(queries, produces)

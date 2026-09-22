@@ -8,7 +8,7 @@ require 'uri'
 # submit -> poll -> fetch cycle for a single query. Blocking by design -- the
 # facade holds the caller's HTTP connection open for the whole cycle so a
 # Shallot-style caller never sees Severance's async job mechanics.
-# Unlike Beacon2/facade/lib/severance_client.rb (its domain-specific sibling
+# Unlike ../beacon-facade/lib/severance_client.rb (its domain-specific sibling
 # that parses SPARQL-JSON/CSV rows into a Ruby structure), this stays fully
 # generic: results are returned as opaque bytes plus a content type, exactly
 # as Severance produced them -- this facade doesn't know or care what shape

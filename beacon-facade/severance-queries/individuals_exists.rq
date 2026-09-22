@@ -1,0 +1,118 @@
+#+ query_id: individuals_exists
+#+ version: 1.0.0
+#+ title: Do any individuals match? (Beacon v2 boolean granularity)
+#+ summary: Returns at most one matching individual -- existence check for CARE-SM-2 registry data.
+#+ description: Shared filter contract with individuals_count -- all 7 filters are optional/unbound-safe. Any filter left out of the Severance job bindings is ignored (matches everyone). See ../handoff-beacon-caresm.md and README.md in this folder for design rationale and assumptions.
+#+ tags:
+#+   - Beacon
+#+   - Individuals
+#+ endpoint_in_url: False
+
+PREFIX obo: <http://purl.obolibrary.org/obo/>
+PREFIX sio: <http://semanticscience.org/resource/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT DISTINCT ?person
+WHERE {
+  GRAPH ?anyrecord {
+    ?person sio:SIO_000228 ?role .
+    ?role a sio:SIO_000016 .
+  }
+
+  # -- sex --
+  FILTER(!BOUND(?_sex_iri) || EXISTS {
+    GRAPH ?sexrecord {
+      ?role sio:SIO_000356 ?sexprocess .
+      ?sexprocess sio:SIO_000229 ?sexoutput .
+      ?sexoutput a obo:NCIT_C160908 ;
+                 sio:SIO_000628 ?sexattr .
+      ?sexattr a ?_sex_iri .
+    }
+  })
+
+  # -- disease (confirmed diagnosis only) --
+  FILTER(!BOUND(?_disease_iri) || EXISTS {
+    GRAPH ?dxrecord {
+      ?role sio:SIO_000356 ?dxprocess .
+      ?dxprocess a obo:NCIT_C18020 ;
+                 sio:SIO_000291 ?dxtarget ;
+                 sio:SIO_000229 ?dxoutput .
+      ?dxtarget a ?_disease_iri .
+      ?dxoutput a obo:OGMS_0000073 ;
+                sio:SIO_000300 ?dxvalue .
+      FILTER(STR(?dxvalue) = "true")
+    }
+  })
+
+  # -- symptom (confirmed phenotype only) --
+  FILTER(!BOUND(?_symptom_iri) || EXISTS {
+    GRAPH ?ptrecord {
+      ?role sio:SIO_000356 ?ptprocess .
+      ?ptprocess sio:SIO_000291 ?pttarget ;
+                 sio:SIO_000229 ?ptoutput .
+      ?pttarget a ?_symptom_iri .
+      ?ptoutput a obo:NCIT_C16977 ;
+                sio:SIO_000300 ?ptvalue .
+      FILTER(STR(?ptvalue) = "true")
+    }
+  })
+
+  # -- gene_variant (lexical HGVS-style identifier match) --
+  FILTER(!BOUND(?_gene_variant_string) || EXISTS {
+    GRAPH ?gtrecord {
+      ?role sio:SIO_000356 ?gtprocess .
+      ?gtprocess a obo:NCIT_C15709 ;
+                 sio:SIO_000229 ?gtoutput .
+      ?gtoutput sio:SIO_000628 ?gtattr .
+      ?gtattr sio:SIO_000671 ?gtid .
+      ?gtid sio:SIO_000300 ?_gene_variant_string .
+    }
+  })
+
+  # -- birthyear (min/max range; VP sends this as an inverted age-this-year
+  #    range, see facade/lib/filter_mapper.rb) --
+  FILTER((!BOUND(?_birthyear_min_integer) && !BOUND(?_birthyear_max_integer)) || EXISTS {
+    GRAPH ?byrecord {
+      ?role sio:SIO_000356 ?byprocess .
+      ?byprocess sio:SIO_000229 ?byoutput .
+      ?byoutput a obo:NCIT_C70856 ;
+                sio:SIO_000628 ?byattr ;
+                sio:SIO_000300 ?byvalue .
+      ?byattr a obo:NCIT_C83164 .
+    }
+    FILTER(!BOUND(?_birthyear_min_integer) || ?byvalue >= ?_birthyear_min_integer)
+    FILTER(!BOUND(?_birthyear_max_integer) || ?byvalue <= ?_birthyear_max_integer)
+  })
+
+  # -- age_symptom_onset (min/max range) --
+  FILTER((!BOUND(?_age_symptom_onset_min_integer) && !BOUND(?_age_symptom_onset_max_integer)) || EXISTS {
+    GRAPH ?sorecord {
+      ?role sio:SIO_000356 ?soprocess .
+      ?soprocess sio:SIO_000291 ?sotarget ;
+                 sio:SIO_000229 ?sooutput .
+      ?sotarget a obo:NCIT_C4876 .
+      ?sooutput a obo:NCIT_C70856 ;
+                sio:SIO_000628 ?soattr ;
+                sio:SIO_000300 ?sovalue .
+      ?soattr a obo:NCIT_C124353 .
+    }
+    FILTER(!BOUND(?_age_symptom_onset_min_integer) || ?sovalue >= ?_age_symptom_onset_min_integer)
+    FILTER(!BOUND(?_age_symptom_onset_max_integer) || ?sovalue <= ?_age_symptom_onset_max_integer)
+  })
+
+  # -- age_diagnosis (min/max range; patient's age at the record containing
+  #    a diagnosis) --
+  FILTER((!BOUND(?_age_diagnosis_min_integer) && !BOUND(?_age_diagnosis_max_integer)) || EXISTS {
+    GRAPH ?adrecord {
+      ?role sio:SIO_000356 ?adprocess .
+      ?adprocess a obo:NCIT_C18020 ;
+                 sio:SIO_000229 ?adoutput .
+      ?adoutput a obo:OGMS_0000073 .
+    }
+    ?adrecord sio:SIO_000687 ?adage .
+    ?adage sio:SIO_000300 ?adagevalue .
+    FILTER(!BOUND(?_age_diagnosis_min_integer) || ?adagevalue >= ?_age_diagnosis_min_integer)
+    FILTER(!BOUND(?_age_diagnosis_max_integer) || ?adagevalue <= ?_age_diagnosis_max_integer)
+  })
+}
+LIMIT 1

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Translates a Severance result set into a Beacon-shaped response.
-# Query-path only (see handoff-beacon-caresm.md).
+# Query-path only (see ../handoff-beacon-caresm.md).
 #
 # Two granularity tiers, gated by whether the caller presented a valid
 # `auth-key` (see app.rb) -- a Beacon is meant to be publicly queryable, so

@@ -1,18 +1,23 @@
 # Beacon facade for CARE-SM-2 over Severance
 
-**Version: see [`VERSION`](VERSION)**, kept in sync with
-[`../VERSION`](../VERSION) (the overall Beacon2 project version). The
-running facade reports this same value at `GET /info` as `facadeVersion`
-(read from this file at boot — see `app.rb`), and the Docker image bakes
-it in as an `org.opencontainers.image.version` label (see the Dockerfile
-and "Docker" section below). Bump both `VERSION` files together when
-making a real release; nothing auto-syncs them.
+**Version: see [`VERSION`](VERSION)**. The running facade reports this
+same value at `GET /info` as `facadeVersion` (read from this file at boot
+— see `app.rb`), and the Docker image bakes it in as an
+`org.opencontainers.image.version` label (see the Dockerfile and "Docker"
+section below).
 
 A Sinatra app implementing the query path of a GA4GH Beacon v2-shaped
 API, backed by CARE-SM-2 patient data via
 [Severance](https://github.com/FAIR-Data-Systems/Severance) as the secure
-query relay. See `../handoff-beacon-caresm.md` for the original design
-rationale and open questions.
+query relay. See [`handoff-beacon-caresm.md`](handoff-beacon-caresm.md) for
+the original design rationale and open questions, and
+[`severance-queries/README.md`](severance-queries/README.md) for the query
+binding contract. Moved here from
+[`CARE-Semantic-Model-Version-2`](https://github.com/wilkinsonlab/CARE-Semantic-Model-Version-2)'s
+`implementation/Beacon2/facade`, alongside its sibling
+[`shallot-facade`](../shallot-facade) — see this repo's `CHANGELOG.md` for
+details; full pre-move commit history is preserved in this repo's own git
+log.
 
 Scope: query path only. No `/catalog`.
 
@@ -79,18 +84,15 @@ conflict. Concretely:
 
 `docker compose up` (after step 2 above -- `docker-compose.yml` reads `.env`, and `BEACON_PORT` if you
 changed it from the default). Hardened the same way as Severance's own `external/`/`internal/` compose
-files, and its sibling `Severance/facades/shallot-facade/docker-compose.yml`: `restart: always`,
+files, and its sibling [`shallot-facade`](../shallot-facade)'s: `restart: always`,
 `security_opt: no-new-privileges`, `cap_drop: [ALL]` (no `cap_add` needed -- this Dockerfile never runs
 as root at all, no volumes to chown), `mem_limit`/`cpus` ceilings.
 
-**Covered by Severance's `Security/security-patch.sh`**, even though this facade's source lives in this
-(different) repo -- it clones this repo fresh (from `origin/main`, so a fix only pushes here first
-before it can be picked up there), builds+OS-patches (`apk`)+pushes+Trivy-scans
-`fairdatasystems/beaconfacade:<date>`, and prints the new tag. It does **not** write that tag back into
-this repo's `docker-compose.yml` automatically (nothing in Severance consumes a beacon-facade tag the
-way `care2`/`fdpserv2` feed Sextans' own compose templates) -- update the `image:` line here by hand
-after a patch run. Until then, `docker-compose.yml` here still points at a `:local` tag built with
-`build: .` -- run `docker build -t fairdatasystems/beaconfacade:local .` yourself in the meantime.
+**Covered by this repo's own `Security/security-patch.sh`** (see `../Security/`) -- builds+OS-patches
+(`apk`)+pushes+Trivy-scans `fairdatasystems/beaconfacade:<date>`, attempts an automated Ruby gem CVE
+patch, and writes the freshly-pushed tag straight into this file's `image:` line, committing and
+pushing that bump directly (no manual step, unlike when this facade lived in a separate repo from the
+pipeline that patches it).
 
 ## Endpoints
 

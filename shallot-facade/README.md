@@ -17,13 +17,13 @@ their own**: register it in the FAIR Data Point exactly like a Shallot query
 (`dcat:endpointURL` = `<this facade>/<query_id>`, `dcat:endpointDescription` =
 `<this facade>/openapi.json`, same `dcterms:type` as the equivalent Shallot query).
 
-**Domain-agnostic on purpose.** Unlike
-[`Beacon2/facade`](https://github.com/wilkinsonlab/CARE-Semantic-Model-Version-2) (CARE-SM-2-specific:
-hardcoded query IDs, an ontology filter-mapper), this facade has zero knowledge of any particular data
-model. It works for FLAIR-GG's queries, CARE-SM-2's, or anyone else's, unmodified -- it only ever talks
-to Severance External's own public API (`available_queries`, `queries`, `jobs/:uuid`), never a `.rq`
-file directly. That's also why it lives in this repo rather than a domain-specific one: it's a reusable
-capability of Severance itself, not of any one project that happens to use Severance.
+**Domain-agnostic on purpose.** Unlike its sibling [`beacon-facade`](../beacon-facade)
+(CARE-SM-2-specific: hardcoded query IDs, an ontology filter-mapper), this facade has zero knowledge
+of any particular data model. It works for FLAIR-GG's queries, CARE-SM-2's, or anyone else's,
+unmodified -- it only ever talks to Severance External's own public API (`available_queries`,
+`queries`, `jobs/:uuid`), never a `.rq` file directly: it's a reusable capability of Severance itself,
+not of any one project that happens to use Severance. (That distinction is why the two facades used to
+live in different repos -- see this repo's `CHANGELOG.md` for why they were consolidated here instead.)
 
 ## Setup
 
@@ -49,12 +49,12 @@ if you changed it from the default). Hardened the same way as Severance's own `e
 (no `cap_add` needed here -- this Dockerfile never runs as root at all, unlike `external/`'s
 chown-then-`gosu` step, since there are no volumes to chown), `mem_limit`/`cpus` ceilings.
 
-**Covered by `Security/security-patch.sh`**, alongside `external`/`internal` -- it builds this image
-fresh from source, OS-patches it (`apk`, this being Alpine-based unlike the other two's Debian-based
-`apt`), pushes `fairdatasystems/shallotfacade:<date>`, Trivy-scans it, and rewrites this file's `image:`
-to the newly patched tag (from `Security/shallot-docker-compose-template-template.yml`). Until that's
-been run at least once, `docker-compose.yml` here still points at a `:local` tag built with `build: .`
-(what a real run replaces) -- run `docker build -t fairdatasystems/shallotfacade:local .` yourself in
+**Covered by this repo's own `Security/security-patch.sh`** (see `../Security/`), alongside its sibling
+[`beacon-facade`](../beacon-facade) -- it builds this image fresh from source, OS-patches it (`apk`),
+pushes `fairdatasystems/shallotfacade:<date>`, Trivy-scans it, attempts an automated Ruby gem CVE patch,
+and writes the newly patched tag straight into this file's `image:` line, committing and pushing that
+bump directly (from `Security/shallot-docker-compose-template-template.yml`). You can still
+`docker build -t fairdatasystems/shallotfacade:local .` yourself in
 the meantime, or run the pipeline.
 
 ## Configuration reference

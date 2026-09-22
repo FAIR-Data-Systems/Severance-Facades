@@ -8,8 +8,8 @@ require_relative 'lib/openapi_builder'
 
 # Sinatra 4.x/rack-protection 4.x enable Rack::Protection::HostAuthorization by default, which rejects
 # any Host header outside a small built-in allowlist (localhost, IP literals, etc.) with a bare 403
-# "Host not permitted" -- the identical issue already documented and fixed the same way in this repo's
-# ../../external/outie.rb (see its own comment for the full history: `set :protection, except:` has
+# "Host not permitted" -- the identical issue already documented and fixed the same way in Severance's
+# external/outie.rb (a separate repo now -- see its own comment for the full history: `set :protection, except:` has
 # proven unreliable across versions here). This facade is meant to be reached under its own real
 # hostname (SHALLOT_FACADE_BASE_URL), not just localhost, and -- like outie.rb -- never renders
 # browser-served HTML or trusts the Host header for anything security-sensitive, so disabling this
@@ -101,7 +101,7 @@ end
 # detailed exception page (full backtrace, file paths, gem versions) for ANY uncaught exception, in
 # every environment -- there is no environment-based fallback once this setting is anything but false.
 # Every route here is meant to have its own explicit rescue around anything that can fail (matching
-# ../../external/outie.rb's convention), but this is the safety net for the mistake of adding a new one
+# Severance's external/outie.rb's convention, a separate repo now), but this is the safety net for the mistake of adding a new one
 # that doesn't -- confirmed live: this is exactly the class of bug that leaked a stack trace from
 # GET / before SeveranceClient#available_queries wrapped its own connection-level failures.
 error StandardError do
