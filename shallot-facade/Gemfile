@@ -3,7 +3,7 @@ source 'https://rubygems.org'
 gem 'sinatra', '~> 4.2'
 gem 'puma', '~> 7.2'
 gem 'rackup', '~> 2.3'
-gem 'json', '~> 2.19'
+gem 'json', '~> 3.0'
 # All three below are unused by this app -- each pinned purely to get a patched version into the
 # Bundler-managed path; see the Dockerfile comment for why each base image's own stale default-gem
 # copy still needs removing separately. Pinned exact (not ~>), unlike external/internal's own "~> 0.5"
