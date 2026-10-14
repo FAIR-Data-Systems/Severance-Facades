@@ -9,7 +9,7 @@ gem 'json'
 # removing separately. Same pin as Severance's external/internal/shallot-facade Gemfiles.
 gem 'net-imap', '~> 0.5'
 gem 'erb', '6.0.7'
-gem 'resolv', '0.8.0'
+gem 'resolv', '0.8.1'
 
 group :test do
   gem 'rspec'
