@@ -11,7 +11,7 @@ gem 'json', '~> 3.0'
 # protect, so an exact pin means a Trivy finding against one can only ever be resolved by a deliberate
 # version bump, never silently by a transitive resolver change.
 gem 'erb', '6.0.7'
-gem 'net-imap', '0.6.7'
+gem 'net-imap', '0.6.8'
 gem 'resolv', '0.8.0'
 
 group :test do
