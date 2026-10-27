@@ -16,5 +16,5 @@ gem 'resolv', '0.8.0'
 
 group :test do
   gem 'rspec', '~> 3.13'
-  gem 'rack-test', '~> 2.2'
+  gem 'rack-test', '~> 2.3'
 end
