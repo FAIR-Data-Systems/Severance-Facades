@@ -99,7 +99,7 @@ patch_image() {
   docker rmi "${build_tag}" >/dev/null 2>&1 || true
 
   echo "trivy" >&2
-  trivy image --scanners vuln --format json --severity CRITICAL,HIGH --timeout 1800s \
+  trivy image --scanners vuln --format json --timeout 1800s \
     "${working_tag}" > "${outputfile}"
 
   if [ -f "${build_dir}/Gemfile" ]; then
@@ -148,7 +148,7 @@ patch_image() {
         docker commit "${name}" "${working_tag}" >&2
         docker stop "${name}" >/dev/null
         docker rm "${name}" >/dev/null
-        trivy image --scanners vuln --format json --severity CRITICAL,HIGH --timeout 1800s \
+        trivy image --scanners vuln --format json --timeout 1800s \
           "${working_tag}" > "${outputfile}"
         ruby "${SCRIPT_DIR}/annotate_gem_shadowing.rb" "${outputfile}" "${build_dir}" >&2 || true
 
