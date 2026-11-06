@@ -4,7 +4,32 @@ All notable changes to this project are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+### Security
+
+- Both facades: `rack` 3.2.6 -> 3.2.8, fixing four advisories published by RubySec on 2026-10-30,
+  including GHSA-5v64-555j-wjxm (a crafted multipart body is held in memory in full -- enough to crash
+  the facade, needing no credentials). None of the four was in GitHub's global advisory database or
+  OSV on 2026-11-06, which is why Dependabot never proposed the update.
+- Both facades refuse `multipart/form-data` bodies (`415`) before anything parses them, and turn off
+  `method_override` (whose middleware reads POST bodies first). Sinatra parses request parameters
+  before any route runs, so Rack's multipart parser was reachable by any caller. Neither facade takes
+  multipart.
+- Both facades now **require** their Severance token (`BEACON_SEVERANCE_AUTH_TOKEN`,
+  `SHALLOT_FACADE_SEVERANCE_AUTH_TOKEN`) and refuse to start without it. They used to fall back to
+  `YesItsMe`, which Severance External no longer accepts at all.
+
+### Fixed
+
+- **beacon-facade could not start** on the Ruby 3.4 base image (Dependabot bump, PR #2): Ruby 3.4 no
+  longer bundles `csv`, which `lib/severance_client.rb` requires. `csv` is now in the Gemfile.
+- `Security/security-patch.sh` checks that every freshly built image actually starts before patching
+  or pushing it (previously only auto-patched images were boot-tested, so the broken beacon image
+  would have been "patched" and pushed). Patch containers now get a throwaway Severance token, which
+  both facades need since the change above. beacon-facade's new spec suite runs in the pipeline.
+
 ### Added
+
+- `beacon-facade/spec/` -- its first specs (the facade had none).
 
 - New repo, consolidating `shallot-facade` (moved from
   [`Severance`](https://github.com/FAIR-Data-Systems/Severance)'s `facades/shallot-facade/`) and

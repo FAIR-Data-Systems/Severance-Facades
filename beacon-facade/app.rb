@@ -15,6 +15,31 @@ set :port, ENV.fetch('BEACON_PORT', '4567').to_i
 # Let our `error` blocks handle exceptions even in development mode, instead
 # of Sinatra's default HTML exception-trace page.
 set :show_exceptions, :after_handler
+# Rack::MethodOverride (on by default for classic-style apps) reads the POST
+# body looking for a `_method` field -- it parses form/multipart bodies before
+# RefuseMultipart below, or any route, sees the request. Nothing uses `_method`.
+set :method_override, false
+
+# Refuses multipart/form-data before anything parses it. Sinatra merges
+# `request.params` (which includes a parsed multipart body) before any route or
+# `before` filter runs, so every Rack multipart-parser bug was reachable by any
+# caller -- e.g. GHSA-5v64-555j-wjxm (rack < 3.2.8), which holds a crafted body
+# in memory in full. Beacon requests are JSON, so the parser is taken off the
+# reachable surface entirely. Same guard as Severance's external/outie.rb.
+class RefuseMultipart
+  def initialize(app)
+    @app = app
+  end
+
+  def call(env)
+    if env['CONTENT_TYPE'].to_s.downcase.include?('multipart/')
+      return [415, { 'content-type' => 'application/json' }, ['{"error":"multipart bodies are not accepted"}']]
+    end
+
+    @app.call(env)
+  end
+end
+use RefuseMultipart
 
 # Read once at boot from the same VERSION file the Dockerfile bakes in as an
 # OCI label -- so the running facade's own version is queryable via GET
@@ -24,7 +49,15 @@ set :show_exceptions, :after_handler
 FACADE_VERSION = File.read(File.join(__dir__, 'VERSION')).strip
 
 SEVERANCE_URL = ENV.fetch('BEACON_SEVERANCE_URL', 'http://localhost:3000')
-SEVERANCE_AUTH_TOKEN = ENV.fetch('BEACON_SEVERANCE_AUTH_TOKEN', 'YesItsMe')
+# Required. Used to fall back to 'YesItsMe', the example token Severance's own
+# docs once shipped -- Severance External now refuses to start with that (or any
+# token under 32 characters), so the fallback could only ever produce a facade
+# that answers every query with Severance's 401. Fail at startup instead.
+SEVERANCE_AUTH_TOKEN = ENV['BEACON_SEVERANCE_AUTH_TOKEN'].to_s.strip
+if SEVERANCE_AUTH_TOKEN.empty?
+  abort 'FATAL: BEACON_SEVERANCE_AUTH_TOKEN is not set. It must be the AUTH_TOKEN of the Severance ' \
+        'External instance this facade calls (the callers\' token -- never Severance\'s INNIE_TOKEN).'
+end
 POLL_INTERVAL = ENV.fetch('BEACON_POLL_INTERVAL', '1').to_f
 POLL_CEILING = ENV.fetch('BEACON_POLL_CEILING', '20').to_f
 

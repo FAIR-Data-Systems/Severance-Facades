@@ -7,6 +7,8 @@ require 'tmpdir'
 # app.rb builds a real SEVERANCE_CLIENT/CATALOGUE at load time (from env defaults, pointing nowhere
 # useful in a spec run), but QueryCatalogue fetches lazily, so loading it here makes no network call --
 # each example below stubs SEVERANCE_CLIENT's methods directly before exercising a route.
+# The token is required at boot (app.rb aborts without it); any value works, nothing is called.
+ENV['SHALLOT_FACADE_SEVERANCE_AUTH_TOKEN'] ||= 's' * 40
 require_relative '../app'
 
 RSpec.describe 'shallot-facade routes' do
@@ -109,6 +111,19 @@ RSpec.describe 'shallot-facade routes' do
       get '/q'
 
       expect(last_response.status).to eq(504)
+    end
+  end
+
+  describe 'multipart bodies' do
+    it 'are refused before anything parses them, on any route' do
+      expect(Rack::Multipart::Parser).not_to receive(:parse)
+      expect(Rack::Multipart).not_to receive(:parse_multipart)
+      body = "--b\r\nContent-Disposition: form-data; name=\"x\"\r\n\r\ny\r\n--b--\r\n"
+
+      %w[/ /openapi.json /some_query].each do |path|
+        post path, body, { 'CONTENT_TYPE' => 'multipart/form-data; boundary=b' }
+        expect(last_response.status).to eq(415), path
+      end
     end
   end
 end

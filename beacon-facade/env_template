@@ -5,7 +5,9 @@ BEACON_BIND=0.0.0.0
 
 # Severance External endpoint this facade submits queries to
 BEACON_SEVERANCE_URL=http://localhost:3000
-BEACON_SEVERANCE_AUTH_TOKEN=YesItsMe
+# REQUIRED: the AUTH_TOKEN of that Severance External (never its INNIE_TOKEN).
+# The facade refuses to start without it.
+BEACON_SEVERANCE_AUTH_TOKEN=
 
 # Blocking poll loop against Severance External while waiting for Internal
 # to pick up and answer the job. Severance Internal's own POLL_INTERVAL

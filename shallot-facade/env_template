@@ -12,7 +12,9 @@ SHALLOT_FACADE_BASE_URL=http://localhost:4567
 # Needs Severance's before-filter fix (see CHANGELOG.md "Fixed" entry, 2026-09) to reach
 # GET /severance/jobs/:uuid and GET /severance/available_queries at all.
 SHALLOT_FACADE_SEVERANCE_URL=http://localhost:3000
-SHALLOT_FACADE_SEVERANCE_AUTH_TOKEN=YesItsMe
+# REQUIRED: the AUTH_TOKEN of that Severance External (never its INNIE_TOKEN). The facade refuses to
+# start without it.
+SHALLOT_FACADE_SEVERANCE_AUTH_TOKEN=
 
 # Blocking poll loop against Severance External while waiting for Internal to pick up and answer the
 # job. Severance Internal's own POLL_INTERVAL (default 10s in its env_template) determines how fast a
