@@ -51,10 +51,12 @@ trap 'rm -f "${AUTOPATCH_QUEUE}"' EXIT
 # capture it with `tag=$(patch_image ...)` while still seeing live progress.
 # Random, single-use Severance token for a container that only exists to be patched or smoke-tested
 # here, never to serve traffic. Both facades' variable names are set; each app ignores the other's.
+# beacon-facade also requires its ERDERA pre-shared key (BEACON_FACADE_AUTH_KEY).
 throwaway_env() {
   local t
   t=$(openssl rand -hex 32)
-  echo "-e BEACON_SEVERANCE_AUTH_TOKEN=${t} -e SHALLOT_FACADE_SEVERANCE_AUTH_TOKEN=${t}"
+  echo "-e BEACON_SEVERANCE_AUTH_TOKEN=${t} -e SHALLOT_FACADE_SEVERANCE_AUTH_TOKEN=${t}" \
+       "-e BEACON_FACADE_AUTH_KEY=$(openssl rand -hex 32)"
 }
 
 patch_image() {

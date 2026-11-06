@@ -4,8 +4,17 @@ All notable changes to this project are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-06 (both facades)
+
+**Breaking:** both facades refuse to start without their Severance token, and beacon-facade also
+without `BEACON_FACADE_AUTH_KEY`. Set them in `.env` before upgrading.
+
 ### Security
 
+- **beacon-facade requires `BEACON_FACADE_AUTH_KEY`** and refuses to start without it. When it was unset,
+  every caller used to be treated as trusted and got counts instead of yes/no answers -- an
+  allow-by-default one forgotten setting away from production. The key is now also compared in
+  constant time (it was a plain string comparison).
 - Both facades: `rack` 3.2.6 -> 3.2.8, fixing four advisories published by RubySec on 2026-10-30,
   including GHSA-5v64-555j-wjxm (a crafted multipart body is held in memory in full -- enough to crash
   the facade, needing no credentials). None of the four was in GitHub's global advisory database or
@@ -30,6 +39,18 @@ All notable changes to this project are documented here. Format loosely follows 
 ### Added
 
 - `beacon-facade/spec/` -- its first specs (the facade had none).
+- `security-patch.sh` pins images by digest in the generated compose files, and records Ruby gem
+  findings at every severity (OS findings at CRITICAL/HIGH/UNKNOWN) -- same as Severance's pipeline.
+
+### Credits
+
+- Mark Wilkinson asked for the wider search beyond GitHub's advisory database that turned up the
+  `rack` advisories affecting both facades, and decided that beacon-facade must refuse to run without
+  its key.
+
+## [0.1.0] - 2026-09-22 (both facades)
+
+### Added
 
 - New repo, consolidating `shallot-facade` (moved from
   [`Severance`](https://github.com/FAIR-Data-Systems/Severance)'s `facades/shallot-facade/`) and

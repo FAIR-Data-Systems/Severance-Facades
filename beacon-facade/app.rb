@@ -2,6 +2,7 @@
 
 require 'sinatra'
 require 'json'
+require 'digest'
 require_relative 'lib/filter_mapper'
 require_relative 'lib/severance_client'
 require_relative 'lib/beacon_response'
@@ -73,9 +74,25 @@ POLL_CEILING = ENV.fetch('BEACON_POLL_CEILING', '20').to_f
 # only the VP could ever reach us. Instead it elevates trust: anyone can
 # call /individuals and get a boolean exists-only answer; a caller
 # presenting the correct key gets the fuller count response the VP needs.
-# If BEACON_FACADE_AUTH_KEY is unset (e.g. local testing), every caller is
-# treated as trusted.
-FACADE_AUTH_KEY = ENV.fetch('BEACON_FACADE_AUTH_KEY', nil)
+#
+# REQUIRED. It used to be optional, and when it was unset EVERY caller was
+# treated as trusted -- an allow-by-default the same kind as Vantage6's
+# GHSA-hx2w-rjmx-934x, one forgotten setting away from handing counts to
+# anyone. The facade now refuses to start without it, for testing too (any
+# value works there).
+FACADE_AUTH_KEY = ENV['BEACON_FACADE_AUTH_KEY'].to_s.strip
+if FACADE_AUTH_KEY.empty?
+  abort 'FATAL: BEACON_FACADE_AUTH_KEY is not set. Set it to the pre-shared key ERDERA configures for ' \
+        'this resource (for local testing, any value -- e.g. `openssl rand -hex 32`).'
+end
+
+# Constant-time comparison of the caller's `auth-key` header (hashed first, so
+# neither its length nor its content leaks through response timing).
+def trusted_caller?(presented)
+  return false if presented.nil? || presented.empty?
+
+  Rack::Utils.secure_compare(Digest::SHA256.digest(presented), Digest::SHA256.digest(FACADE_AUTH_KEY))
+end
 
 severance = SeveranceClient.new(
   base_url: SEVERANCE_URL,
@@ -116,7 +133,7 @@ end
 # valid `auth-key` elevates the response to count granularity -- see the
 # BEACON_FACADE_AUTH_KEY comment above.
 post '/individuals' do
-  trusted = FACADE_AUTH_KEY.nil? || request.env['HTTP_AUTH_KEY'] == FACADE_AUTH_KEY
+  trusted = trusted_caller?(request.env['HTTP_AUTH_KEY'])
   granularity = trusted ? 'count' : 'boolean'
   query_id = trusted ? 'individuals_count' : 'individuals_exists'
 
