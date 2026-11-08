@@ -3,7 +3,7 @@ source 'https://rubygems.org'
 gem 'sinatra', '~> 4.2'
 gem 'puma', '~> 8.0'
 gem 'rackup', '~> 2.3'
-gem 'json', '~> 3.0'
+gem 'json', '~> 3.1'
 # All three below are unused by this app -- each pinned purely to get a patched version into the
 # Bundler-managed path; see the Dockerfile comment for why each base image's own stale default-gem
 # copy still needs removing separately. Pinned exact (not ~>), unlike external/internal's own "~> 0.5"
@@ -11,10 +11,10 @@ gem 'json', '~> 3.0'
 # protect, so an exact pin means a Trivy finding against one can only ever be resolved by a deliberate
 # version bump, never silently by a transitive resolver change.
 gem 'erb', '6.0.7'
-gem 'net-imap', '0.6.7'
-gem 'resolv', '0.8.0'
+gem 'net-imap', '0.6.8'
+gem 'resolv', '0.8.1'
 
 group :test do
   gem 'rspec', '~> 3.13'
-  gem 'rack-test', '~> 2.2'
+  gem 'rack-test', '~> 2.3'
 end
