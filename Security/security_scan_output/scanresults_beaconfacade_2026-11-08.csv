@@ -1,0 +1,3 @@
+Target,VulnerabilityID,Package,InstalledVersion,FixedVersion,Severity,Title,PrimaryURL,BundlerShadowed,BundlerShadowedDetail
+Ruby,CVE-2026-33210,json,2.18.0,"~> 2.15.2.1, ~> 2.17.1.2, >= 2.19.2",CRITICAL,ruby/json: Ruby JSON: Denial of Service or Information Disclosure via format string injection,https://avd.aquasec.com/nvd/cve-2026-33210,yes,"bundle exec loads json 3.1.0 (Gemfile-pinned); the flagged 2.18.0 is a stale copy on disk, never loaded at runtime"
+Ruby,CVE-2026-54696,json,2.18.0,>= 2.19.9,LOW,json: Ruby JSON: Denial of service via heap buffer overflow with oversized streamed objects,https://avd.aquasec.com/nvd/cve-2026-54696,yes,"bundle exec loads json 3.1.0 (Gemfile-pinned); the flagged 2.18.0 is a stale copy on disk, never loaded at runtime"
