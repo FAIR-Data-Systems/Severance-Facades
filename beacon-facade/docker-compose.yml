@@ -1,7 +1,6 @@
 services:
   beacon-facade:
-    image: fairdatasystems/beaconfacade:local
-    build: .
+    image: fairdatasystems/beaconfacade:2026-11-08@sha256:d0926434abc87d236e86e682a3c9d6df00553a6e20b4ea3dc41d1cb306cf1c48
     restart: always
     security_opt:
       - "no-new-privileges:true"

@@ -1,6 +1,6 @@
 services:
   shallot-facade:
-    image: fairdatasystems/shallotfacade:2026-09-22
+    image: fairdatasystems/shallotfacade:2026-11-08@sha256:b59a8f1ff2d993714745914b84b7ab853e054bb0c5e131031f97e4eb7a2469da
     restart: always
     security_opt:
       - "no-new-privileges:true"
