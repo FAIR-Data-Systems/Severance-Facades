@@ -67,8 +67,11 @@ this facade:**
 1. `bundle install`
 2. **Copy `env_template` to `.env`.** Edit:
    - `BEACON_SEVERANCE_URL` / `BEACON_SEVERANCE_AUTH_TOKEN` -- must match your Severance External
-     deployment exactly.
-   - `BEACON_FACADE_AUTH_KEY` -- set this to whatever pre-shared key ERDERA configures for this
+     deployment exactly. **`BEACON_SEVERANCE_AUTH_TOKEN` is REQUIRED -- the facade will not start
+     without it.** It is Severance's `AUTH_TOKEN` (the callers' token), **NEVER its `INNIE_TOKEN`!**
+   - `BEACON_FACADE_AUTH_KEY` -- **REQUIRED, the facade will not start without it!** (It used to be
+     optional, and leaving it unset made EVERY caller trusted.) Set it to whatever pre-shared key
+     ERDERA configures for this
      resource. All env vars here are `BEACON_`-prefixed on purpose, so they can't collide with
      unrelated ones on a host that also runs Severance (or anything else) alongside this facade.
 3. **Install `../severance-queries/individuals_exists.rq` and `individuals_count.rq` into your
@@ -117,8 +120,7 @@ directly.
   ```
 
   **What you get back depends on whether the caller presents a valid `auth-key` header** matching
-  `BEACON_FACADE_AUTH_KEY` (if `BEACON_FACADE_AUTH_KEY` is left unset, every caller is trusted -- only
-  do this for local testing). See `../VP-AUTH-EXPLAINED.md` for why this is deliberately not a hard
+  `BEACON_FACADE_AUTH_KEY`. See `../VP-AUTH-EXPLAINED.md` for why this is deliberately not a hard
   access gate. **Without the correct `auth-key`, you get a boolean-only response:**
 
   ```json

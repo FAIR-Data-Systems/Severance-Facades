@@ -2,6 +2,7 @@
 
 require 'sinatra'
 require 'json'
+require 'digest'
 require_relative 'lib/filter_mapper'
 require_relative 'lib/severance_client'
 require_relative 'lib/beacon_response'
@@ -15,6 +16,31 @@ set :port, ENV.fetch('BEACON_PORT', '4567').to_i
 # Let our `error` blocks handle exceptions even in development mode, instead
 # of Sinatra's default HTML exception-trace page.
 set :show_exceptions, :after_handler
+# Rack::MethodOverride (on by default for classic-style apps) reads the POST
+# body looking for a `_method` field -- it parses form/multipart bodies before
+# RefuseMultipart below, or any route, sees the request. Nothing uses `_method`.
+set :method_override, false
+
+# Refuses multipart/form-data before anything parses it. Sinatra merges
+# `request.params` (which includes a parsed multipart body) before any route or
+# `before` filter runs, so every Rack multipart-parser bug was reachable by any
+# caller -- e.g. GHSA-5v64-555j-wjxm (rack < 3.2.8), which holds a crafted body
+# in memory in full. Beacon requests are JSON, so the parser is taken off the
+# reachable surface entirely. Same guard as Severance's external/outie.rb.
+class RefuseMultipart
+  def initialize(app)
+    @app = app
+  end
+
+  def call(env)
+    if env['CONTENT_TYPE'].to_s.downcase.include?('multipart/')
+      return [415, { 'content-type' => 'application/json' }, ['{"error":"multipart bodies are not accepted"}']]
+    end
+
+    @app.call(env)
+  end
+end
+use RefuseMultipart
 
 # Read once at boot from the same VERSION file the Dockerfile bakes in as an
 # OCI label -- so the running facade's own version is queryable via GET
@@ -24,7 +50,15 @@ set :show_exceptions, :after_handler
 FACADE_VERSION = File.read(File.join(__dir__, 'VERSION')).strip
 
 SEVERANCE_URL = ENV.fetch('BEACON_SEVERANCE_URL', 'http://localhost:3000')
-SEVERANCE_AUTH_TOKEN = ENV.fetch('BEACON_SEVERANCE_AUTH_TOKEN', 'YesItsMe')
+# Required. Used to fall back to 'YesItsMe', the example token Severance's own
+# docs once shipped -- Severance External now refuses to start with that (or any
+# token under 32 characters), so the fallback could only ever produce a facade
+# that answers every query with Severance's 401. Fail at startup instead.
+SEVERANCE_AUTH_TOKEN = ENV['BEACON_SEVERANCE_AUTH_TOKEN'].to_s.strip
+if SEVERANCE_AUTH_TOKEN.empty?
+  abort 'FATAL: BEACON_SEVERANCE_AUTH_TOKEN is not set. It must be the AUTH_TOKEN of the Severance ' \
+        'External instance this facade calls (the callers\' token -- never Severance\'s INNIE_TOKEN).'
+end
 POLL_INTERVAL = ENV.fetch('BEACON_POLL_INTERVAL', '1').to_f
 POLL_CEILING = ENV.fetch('BEACON_POLL_CEILING', '20').to_f
 
@@ -40,9 +74,25 @@ POLL_CEILING = ENV.fetch('BEACON_POLL_CEILING', '20').to_f
 # only the VP could ever reach us. Instead it elevates trust: anyone can
 # call /individuals and get a boolean exists-only answer; a caller
 # presenting the correct key gets the fuller count response the VP needs.
-# If BEACON_FACADE_AUTH_KEY is unset (e.g. local testing), every caller is
-# treated as trusted.
-FACADE_AUTH_KEY = ENV.fetch('BEACON_FACADE_AUTH_KEY', nil)
+#
+# REQUIRED. It used to be optional, and when it was unset EVERY caller was
+# treated as trusted -- an allow-by-default the same kind as Vantage6's
+# GHSA-hx2w-rjmx-934x, one forgotten setting away from handing counts to
+# anyone. The facade now refuses to start without it, for testing too (any
+# value works there).
+FACADE_AUTH_KEY = ENV['BEACON_FACADE_AUTH_KEY'].to_s.strip
+if FACADE_AUTH_KEY.empty?
+  abort 'FATAL: BEACON_FACADE_AUTH_KEY is not set. Set it to the pre-shared key ERDERA configures for ' \
+        'this resource (for local testing, any value -- e.g. `openssl rand -hex 32`).'
+end
+
+# Constant-time comparison of the caller's `auth-key` header (hashed first, so
+# neither its length nor its content leaks through response timing).
+def trusted_caller?(presented)
+  return false if presented.nil? || presented.empty?
+
+  Rack::Utils.secure_compare(Digest::SHA256.digest(presented), Digest::SHA256.digest(FACADE_AUTH_KEY))
+end
 
 severance = SeveranceClient.new(
   base_url: SEVERANCE_URL,
@@ -83,7 +133,7 @@ end
 # valid `auth-key` elevates the response to count granularity -- see the
 # BEACON_FACADE_AUTH_KEY comment above.
 post '/individuals' do
-  trusted = FACADE_AUTH_KEY.nil? || request.env['HTTP_AUTH_KEY'] == FACADE_AUTH_KEY
+  trusted = trusted_caller?(request.env['HTTP_AUTH_KEY'])
   granularity = trusted ? 'count' : 'boolean'
   query_id = trusted ? 'individuals_count' : 'individuals_exists'
 

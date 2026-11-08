@@ -5,7 +5,9 @@ BEACON_BIND=0.0.0.0
 
 # Severance External endpoint this facade submits queries to
 BEACON_SEVERANCE_URL=http://localhost:3000
-BEACON_SEVERANCE_AUTH_TOKEN=YesItsMe
+# REQUIRED: the AUTH_TOKEN of that Severance External (never its INNIE_TOKEN).
+# The facade refuses to start without it.
+BEACON_SEVERANCE_AUTH_TOKEN=
 
 # Blocking poll loop against Severance External while waiting for Internal
 # to pick up and answer the job. Severance Internal's own POLL_INTERVAL
@@ -19,8 +21,9 @@ BEACON_ENVIRONMENT=test
 # Pre-shared key ERDERA will configure when registering this facade as a
 # Beacon resource in the VP; sent back as the `auth-key` header on every
 # call. This is NOT a hard access gate -- see ../VP-AUTH-EXPLAINED.md --
-# it only elevates a caller from boolean to count granularity. Leave unset
-# for local testing (every caller is then treated as trusted).
+# it only elevates a caller from boolean to count granularity. REQUIRED: the
+# facade refuses to start without it. For local testing, any value works
+# (e.g. the output of: openssl rand -hex 32).
 BEACON_FACADE_AUTH_KEY=
 
 # Optional contact info surfaced in response.resultSets[].info

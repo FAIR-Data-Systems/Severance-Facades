@@ -171,7 +171,7 @@ def main():
         })
 
     # Sort: CRITICAL first, then by exposure tier, then image, then CVE
-    sev_rank = {"CRITICAL": 0, "HIGH": 1}
+    sev_rank = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "UNKNOWN": 4}
     out_rows.sort(key=lambda r: (sev_rank.get(r["Severity"], 9), r["ExposureTier"],
                                   r["Image"], r["VulnerabilityID"]))
 

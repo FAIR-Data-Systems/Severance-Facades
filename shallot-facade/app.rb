@@ -27,6 +27,38 @@ end
 set :bind, ENV.fetch('SHALLOT_FACADE_BIND', '0.0.0.0')
 set :port, ENV.fetch('SHALLOT_FACADE_PORT', '4567').to_i
 set :show_exceptions, :after_handler
+# Rack::MethodOverride (on by default for classic-style apps) reads POST bodies looking for a `_method`
+# field -- parsing form/multipart bodies before RefuseMultipart below, or any route, sees the request.
+# This facade only serves GETs and never uses `_method`.
+set :method_override, false
+
+# Refuses multipart/form-data before anything parses it. Sinatra merges `request.params` (which
+# includes a parsed multipart body) before any route runs, so every Rack multipart-parser bug was
+# reachable by any caller -- e.g. GHSA-5v64-555j-wjxm (rack < 3.2.8), which holds a crafted body in
+# memory in full. Nothing here takes a body at all. Same guard as Severance's external/outie.rb.
+class RefuseMultipart
+  def initialize(app)
+    @app = app
+  end
+
+  def call(env)
+    if env['CONTENT_TYPE'].to_s.downcase.include?('multipart/')
+      return [415, { 'content-type' => 'application/json' }, ['{"error":"multipart bodies are not accepted"}']]
+    end
+
+    @app.call(env)
+  end
+end
+use RefuseMultipart
+
+# Required. Used to fall back to 'YesItsMe', the example token Severance's own docs once shipped --
+# Severance External now refuses to start with that (or any token under 32 characters), so the
+# fallback could only ever produce a facade that answers every query with Severance's 401.
+SEVERANCE_AUTH_TOKEN = ENV['SHALLOT_FACADE_SEVERANCE_AUTH_TOKEN'].to_s.strip
+if SEVERANCE_AUTH_TOKEN.empty?
+  abort 'FATAL: SHALLOT_FACADE_SEVERANCE_AUTH_TOKEN is not set. It must be the AUTH_TOKEN of the ' \
+        'Severance External instance this facade calls (the callers\' token -- never INNIE_TOKEN).'
+end
 
 FACADE_VERSION = File.read(File.join(__dir__, 'VERSION')).strip
 
@@ -47,7 +79,7 @@ PRODUCES = ENV.fetch('SHALLOT_FACADE_PRODUCES', 'application/sparql-results+json
 # its own (QueryCatalogue fetches lazily, on first use).
 SEVERANCE_CLIENT = SeveranceClient.new(
   base_url: ENV.fetch('SHALLOT_FACADE_SEVERANCE_URL', 'http://localhost:3000'),
-  auth_token: ENV.fetch('SHALLOT_FACADE_SEVERANCE_AUTH_TOKEN', 'YesItsMe'),
+  auth_token: SEVERANCE_AUTH_TOKEN,
   poll_interval: ENV.fetch('SHALLOT_FACADE_POLL_INTERVAL', '1').to_f,
   poll_ceiling: ENV.fetch('SHALLOT_FACADE_POLL_CEILING', '20').to_f
 )

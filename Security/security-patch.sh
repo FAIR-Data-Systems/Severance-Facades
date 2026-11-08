@@ -47,8 +47,18 @@ trap 'rm -f "${AUTOPATCH_QUEUE}"' EXIT
 # real, still-reachable one.
 #
 # All progress output below goes to stderr; the final `fairdatasystems/
-# <name>:<timestamp>` tag is the only thing written to stdout, so callers can
+# <name>:<timestamp>@sha256:<digest>` reference is the only thing written to stdout, so callers can
 # capture it with `tag=$(patch_image ...)` while still seeing live progress.
+# Random, single-use Severance token for a container that only exists to be patched or smoke-tested
+# here, never to serve traffic. Both facades' variable names are set; each app ignores the other's.
+# beacon-facade also requires its ERDERA pre-shared key (BEACON_FACADE_AUTH_KEY).
+throwaway_env() {
+  local t
+  t=$(openssl rand -hex 32)
+  echo "-e BEACON_SEVERANCE_AUTH_TOKEN=${t} -e SHALLOT_FACADE_SEVERANCE_AUTH_TOKEN=${t}" \
+       "-e BEACON_FACADE_AUTH_KEY=$(openssl rand -hex 32)"
+}
+
 patch_image() {
   local name="$1" build_dir="$2" version_file="$3" version_arg="$4" test_cmd="${5:-}"
   local build_tag="${name}:build-${timestamp}"
@@ -64,11 +74,21 @@ patch_image() {
     -t "${build_tag}" "${build_dir}" >&2
 
   docker rm -f "${name}" >/dev/null 2>&1 || true
-  # Neither app reads ENCRYPTION_KEY_HEX, unlike Severance's own outie.rb/innie.rb -- these facades
-  # are stateless HTTP translators, nothing here to encrypt. No env var needs setting before `docker
-  # run` for the patch/scan cycle to work, unlike Severance's own security-patch.sh.
-  docker run -d --name "${name}" "${build_tag}" >&2
+  # Neither app reads ENCRYPTION_KEY_HEX (they are stateless HTTP translators), but since
+  # 2026-11-06 both refuse to start without the Severance AUTH_TOKEN they forward -- without one here
+  # the container exits at once and every patch step below silently does nothing. See throwaway_env.
+  docker run -d --name "${name}" $(throwaway_env) "${build_tag}" >&2
   sleep 2
+  # Every image must actually start before anything else happens to it -- not only auto-patched ones.
+  # Without this, an image that crashes on boot (e.g. beacon-facade after a Ruby 3.4 base-image bump
+  # dropped the `csv` default gem, 2026-11) was patched "successfully" -- every docker exec failing
+  # quietly -- and pushed.
+  if ! docker ps --filter "name=^${name}\$" --filter "status=running" --format '{{.Names}}' | grep -q .; then
+    echo "FATAL: ${name} does not start -- not patching or pushing it. Its log:" >&2
+    docker logs "${name}" 2>&1 | tail -20 >&2
+    docker rm -f "${name}" >/dev/null 2>&1 || true
+    exit 1
+  fi
   echo "updating ${name}" >&2
   # -u root: both images bake in a non-root USER (no chown-then-gosu step -- no volumes mounted, so
   # nothing to chown), so a plain `docker exec` would run as that user and apk would fail with a
@@ -81,7 +101,7 @@ patch_image() {
   docker rmi "${build_tag}" >/dev/null 2>&1 || true
 
   echo "trivy" >&2
-  trivy image --scanners vuln --format json --severity CRITICAL,HIGH --timeout 1800s \
+  trivy image --scanners vuln --format json --timeout 1800s \
     "${working_tag}" > "${outputfile}"
 
   if [ -f "${build_dir}/Gemfile" ]; then
@@ -112,7 +132,7 @@ patch_image() {
       local boot_ok=1
       if [ "${rebuild_ok}" -eq 0 ] && [ "${tests_ok}" -eq 0 ]; then
         docker rm -f "${name}-autopatch-smoketest" >/dev/null 2>&1 || true
-        docker run -d --name "${name}-autopatch-smoketest" "${autopatch_build_tag}" >&2
+        docker run -d --name "${name}-autopatch-smoketest" $(throwaway_env) "${autopatch_build_tag}" >&2
         sleep 3
         if docker ps --filter "name=${name}-autopatch-smoketest" --filter "status=running" \
              --format '{{.Names}}' | grep -q "^${name}-autopatch-smoketest\$"; then
@@ -124,13 +144,13 @@ patch_image() {
       if [ "${rebuild_ok}" -eq 0 ] && [ "${tests_ok}" -eq 0 ] && [ "${boot_ok}" -eq 0 ]; then
         echo "auto-patch verified: build OK, tests OK, boot OK -- keeping the change and re-patching/re-scanning" >&2
         docker rm -f "${name}" >/dev/null 2>&1 || true
-        docker run -d --name "${name}" "${autopatch_build_tag}" >&2
+        docker run -d --name "${name}" $(throwaway_env) "${autopatch_build_tag}" >&2
         sleep 2
         docker exec -u root "${name}" sh -c "apk update && apk upgrade --no-cache --force-missing-repositories" >&2
         docker commit "${name}" "${working_tag}" >&2
         docker stop "${name}" >/dev/null
         docker rm "${name}" >/dev/null
-        trivy image --scanners vuln --format json --severity CRITICAL,HIGH --timeout 1800s \
+        trivy image --scanners vuln --format json --timeout 1800s \
           "${working_tag}" > "${outputfile}"
         ruby "${SCRIPT_DIR}/annotate_gem_shadowing.rb" "${outputfile}" "${build_dir}" >&2 || true
 
@@ -174,9 +194,22 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>" \
   echo "push" >&2
   docker push "${working_tag}" >&2
   echo "pushed" >&2
+
+  # Pin the compose files to this exact image by digest, not by tag alone. A tag can be re-pointed by
+  # anyone who gets push access to the registry; a digest cannot. That is exactly what happened to
+  # Vantage6 in March 2026: an attacker with admin access to their registry put a malware downloader
+  # into images under their existing tags, and everyone who pulled those tags got it. With
+  # `tag@sha256:...`, docker refuses an image whose content doesn't match. No digest = no pin = stop.
+  local digest
+  digest=$(docker inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "${working_tag}" \
+    | grep "^fairdatasystems/${name}@sha256:" | head -1 | cut -d@ -f2)
+  if [ -z "${digest}" ]; then
+    echo "FATAL: no registry digest for ${working_tag} after push -- not writing a tag-only pin" >&2
+    exit 1
+  fi
   echo "END" >&2
 
-  echo "${working_tag}"
+  echo "${working_tag}@${digest}"
 }
 
 # Opens a PR for a repo with a queued auto-patch commit. $1 = repo_path, $2 = branch, $3 = title.
@@ -197,9 +230,9 @@ open_autopatch_pr() {
 }
 
 SFAC=$(patch_image shallotfacade ../shallot-facade ../shallot-facade/VERSION \
-  SHALLOT_FACADE_VERSION "bundle exec rspec")
+  SHALLOT_FACADE_VERSION "bundle install --quiet && bundle exec rspec")
 BFAC=$(patch_image beaconfacade ../beacon-facade ../beacon-facade/VERSION \
-  BEACON_FACADE_VERSION)
+  BEACON_FACADE_VERSION "bundle install --quiet && bundle exec rspec")
 
 cp shallot-docker-compose-template-template.yml shallot-docker-compose-template-tmp.yml
 cp beacon-docker-compose-template-template.yml beacon-docker-compose-template-tmp.yml

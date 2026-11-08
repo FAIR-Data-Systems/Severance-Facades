@@ -35,7 +35,9 @@ isn't there yet, you must get it added before this facade can do anything with i
 1. `bundle install`
 2. **Copy `env_template` to `.env`.** Edit:
    - `SHALLOT_FACADE_SEVERANCE_URL` / `SHALLOT_FACADE_SEVERANCE_AUTH_TOKEN` -- must match your Severance
-     External deployment exactly.
+     External deployment exactly. **`SHALLOT_FACADE_SEVERANCE_AUTH_TOKEN` is REQUIRED -- the facade
+     will not start without it.** It is Severance's `AUTH_TOKEN` (the callers' token), **NEVER its
+     `INNIE_TOKEN`!**
    - `SHALLOT_FACADE_BASE_URL` -- this facade's own externally-reachable base URL. **This has to be
      exactly right** -- see `GET /openapi.json` below for why.
 3. **Install your query `.rq` files into Severance Internal's `./queries` folder, as usual.** Nothing
